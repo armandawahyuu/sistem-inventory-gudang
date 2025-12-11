@@ -1,0 +1,249 @@
+// prisma/schema.prisma
+// Sistem Inventory Gudang Sparepart Alat Berat
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ==================== USER & AUTH ====================
+
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  password  String   // hashed with bcrypt
+  name      String
+  role      String   @default("supervisor")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ==================== MASTER DATA ====================
+
+// Alat Berat
+model HeavyEquipment {
+  id        String   @id @default(cuid())
+  code      String   @unique // Nomor unit
+  name      String
+  type      String   // Excavator, Bulldozer, Wheel Loader, dll
+  brand     String
+  model     String
+  year      Int?
+  site      String?  // Lokasi project
+  status    String   @default("active") // active, maintenance, inactive
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  stockOuts StockOut[]
+
+  @@index([type])
+  @@index([site])
+  @@index([status])
+}
+
+// Kategori Sparepart
+model Category {
+  id         String      @id @default(cuid())
+  name       String      @unique
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  
+  spareparts Sparepart[]
+}
+
+// Sparepart
+model Sparepart {
+  id           String   @id @default(cuid())
+  code         String   @unique
+  name         String
+  categoryId   String
+  brand        String?
+  unit         String   // pcs, liter, set, dll
+  minStock     Int      @default(0)
+  currentStock Int      @default(0)
+  rackLocation String?  // Lokasi rak di gudang
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  category        Category                 @relation(fields: [categoryId], references: [id])
+  stockIns        StockIn[]
+  stockOuts       StockOut[]
+  compatibilities EquipmentCompatibility[]
+  warranties      Warranty[]
+
+  @@index([name])
+  @@index([categoryId])
+  @@index([code])
+}
+
+// Kompatibilitas Sparepart dengan Alat Berat
+model EquipmentCompatibility {
+  id             String  @id @default(cuid())
+  sparepartId    String
+  equipmentType  String  // Tipe alat yang kompatibel
+  equipmentBrand String?
+  equipmentModel String?
+
+  sparepart Sparepart @relation(fields: [sparepartId], references: [id], onDelete: Cascade)
+
+  @@index([sparepartId])
+  @@index([equipmentType])
+}
+
+// Supplier
+model Supplier {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String?
+  email     String?
+  address   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  stockIns StockIn[]
+}
+
+// ==================== KARYAWAN & ABSENSI ====================
+
+// Karyawan
+model Employee {
+  id         String   @id @default(cuid())
+  nik        String   @unique // Nomor Induk Karyawan
+  name       String
+  position   String   // Mekanik, Staff Gudang, dll
+  department String?
+  phone      String?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  attendances Attendance[]
+  stockOuts   StockOut[]
+
+  @@index([name])
+  @@index([position])
+}
+
+// Absensi / Tarikan Finger
+model Attendance {
+  id            String    @id @default(cuid())
+  employeeId    String
+  date          DateTime  @db.Date
+  clockIn       DateTime?
+  clockOut      DateTime?
+  status        String    @default("present") // present, absent, late, permit, sick
+  overtimeHours Float?    @default(0)
+  notes         String?
+  createdAt     DateTime  @default(now())
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, date])
+  @@index([date])
+  @@index([status])
+}
+
+// ==================== TRANSAKSI ====================
+
+// Barang Masuk
+model StockIn {
+  id             String    @id @default(cuid())
+  sparepartId    String
+  quantity       Int
+  supplierId     String?
+  invoiceNumber  String?   // Nomor invoice/surat jalan
+  purchasePrice  Float?    // Harga beli per unit
+  warrantyExpiry DateTime? // Tanggal expired garansi
+  notes          String?
+  createdAt      DateTime  @default(now())
+
+  sparepart Sparepart  @relation(fields: [sparepartId], references: [id])
+  supplier  Supplier?  @relation(fields: [supplierId], references: [id])
+  warranty  Warranty?
+
+  @@index([sparepartId])
+  @@index([supplierId])
+  @@index([createdAt])
+}
+
+// Barang Keluar
+model StockOut {
+  id             String    @id @default(cuid())
+  sparepartId    String
+  equipmentId    String
+  employeeId     String    // Yang request/ambil barang
+  quantity       Int
+  purpose        String?   // Keperluan: maintenance rutin, perbaikan, dll
+  status         String    @default("pending") // pending, approved, rejected
+  approvedAt     DateTime?
+  approvedBy     String?   // User ID yang approve
+  rejectedReason String?
+  scannedBarcode String?   // Log barcode yang di-scan
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  sparepart Sparepart      @relation(fields: [sparepartId], references: [id])
+  equipment HeavyEquipment @relation(fields: [equipmentId], references: [id])
+  employee  Employee       @relation(fields: [employeeId], references: [id])
+
+  @@index([sparepartId])
+  @@index([equipmentId])
+  @@index([employeeId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// ==================== KAS KECIL ====================
+
+// Kategori Kas Kecil
+model PettyCashCategory {
+  id        String      @id @default(cuid())
+  name      String      @unique // BBM, Makan, ATK, Transport, dll
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  transactions PettyCash[]
+}
+
+// Transaksi Kas Kecil
+model PettyCash {
+  id          String    @id @default(cuid())
+  date        DateTime  @db.Date
+  type        String    // in (pemasukan), out (pengeluaran)
+  categoryId  String?
+  amount      Float
+  description String
+  receipt     String?   // URL/path foto struk
+  createdAt   DateTime  @default(now())
+
+  category PettyCashCategory? @relation(fields: [categoryId], references: [id])
+
+  @@index([date])
+  @@index([type])
+  @@index([categoryId])
+}
+
+// ==================== GARANSI ====================
+
+// Tracking Garansi
+model Warranty {
+  id          String    @id @default(cuid())
+  stockInId   String    @unique
+  sparepartId String
+  expiryDate  DateTime
+  claimStatus String    @default("active") // active, claimed, expired
+  claimDate   DateTime?
+  claimNotes  String?
+  createdAt   DateTime  @default(now())
+
+  stockIn   StockIn   @relation(fields: [stockInId], references: [id], onDelete: Cascade)
+  sparepart Sparepart @relation(fields: [sparepartId], references: [id])
+
+  @@index([expiryDate])
+  @@index([claimStatus])
+  @@index([sparepartId])
+}
+
