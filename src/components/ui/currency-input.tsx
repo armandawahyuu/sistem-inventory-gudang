@@ -64,7 +64,7 @@ const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
                 onChange={handleChange}
                 onFocus={handleFocus}
                 placeholder="0"
-                className={cn("text-right", className)}
+                className={className}
                 {...props}
             />
         );
