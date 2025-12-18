@@ -29,7 +29,7 @@ function getSecurityHeaders(): Record<string, string> {
             : {
                 "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
             }),
-        "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
+        "Permissions-Policy": "camera=(self), microphone=(), geolocation=(), payment=()",
     };
 }
 

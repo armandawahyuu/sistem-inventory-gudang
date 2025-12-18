@@ -38,7 +38,7 @@ export function getSecurityHeaders(): Record<string, string> {
 
         // Permissions Policy (formerly Feature-Policy)
         "Permissions-Policy": [
-            "camera=()",
+            "camera=(self)",
             "microphone=()",
             "geolocation=()",
             "payment=()",
