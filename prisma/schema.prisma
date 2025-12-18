@@ -196,6 +196,8 @@ model Supplier {
   updatedAt DateTime @updatedAt
 
   stockIns StockIn[]
+
+  @@index([name])
 }
 
 // ==================== KARYAWAN & ABSENSI ====================
@@ -259,6 +261,7 @@ model StockIn {
   @@index([sparepartId])
   @@index([supplierId])
   @@index([createdAt])
+  @@index([invoiceNumber])
 }
 
 // Barang Keluar
