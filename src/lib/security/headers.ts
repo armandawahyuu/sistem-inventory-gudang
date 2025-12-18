@@ -71,6 +71,9 @@ function getCSP(isDev: boolean): string {
         // Images - allow data URLs for base64 images (barcodes, etc.)
         "img-src 'self' data: blob: https:",
 
+        // Media - allow camera access for barcode scanner
+        "media-src 'self' blob:",
+
         // Connect - API calls
         "connect-src 'self'",
 
