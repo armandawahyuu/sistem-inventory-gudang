@@ -112,6 +112,7 @@ const navItems: NavItem[] = [
             { title: "History Import", href: "/settings/import/history", icon: <Clock className="h-4 w-4" /> },
             { title: "Cleanup Data", href: "/settings/cleanup", icon: <ListChecks className="h-4 w-4" /> },
             { title: "Migrasi", href: "/settings/migrasi", icon: <ArrowUpFromLine className="h-4 w-4" /> },
+            { title: "Activity Log", href: "/settings/activity-log", icon: <FileText className="h-4 w-4" /> },
             { title: "Security Logs", href: "/settings/security-logs", icon: <Shield className="h-4 w-4" /> },
         ],
     },
