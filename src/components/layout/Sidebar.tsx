@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useId } from "react";
 import { useSession, signOut } from "next-auth/react";
 import {
     LayoutDashboard,
@@ -127,6 +127,7 @@ export function Sidebar({ className, onNavItemClick }: SidebarProps) {
     const pathname = usePathname();
     const { data: session } = useSession();
     const [openMenus, setOpenMenus] = useState<string[]>(["Master Data", "Transaksi"]);
+    const baseId = useId();
 
     const toggleMenu = (title: string) => {
         setOpenMenus((prev) =>
