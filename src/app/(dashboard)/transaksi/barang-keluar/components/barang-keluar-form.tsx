@@ -1,8 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,17 +11,17 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-} from "@/components/ui/form";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { stockOutSchema, type StockOutInput } from "@/lib/validations/stock-out";
-import { Loader2, Search, Package, Camera, AlertTriangle } from "lucide-react";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table";
+import { Loader2, Search, Package, Camera, Trash2, Plus, ShoppingCart, AlertTriangle } from "lucide-react";
 import { BarcodeScanner } from "./barcode-scanner";
 import { toast } from "sonner";
 
@@ -50,8 +48,14 @@ interface Employee {
     position: string;
 }
 
+interface CartItem {
+    sparepart: Sparepart;
+    quantity: number;
+    scannedBarcode?: string;
+}
+
 interface BarangKeluarFormProps {
-    onSubmit: (data: StockOutInput) => Promise<void>;
+    onSubmit: (items: { sparepartId: string; quantity: number; scannedBarcode?: string }[], equipmentId: string, employeeId: string, purpose: string) => Promise<void>;
     isLoading: boolean;
 }
 
@@ -61,23 +65,14 @@ export function BarangKeluarForm({ onSubmit, isLoading }: BarangKeluarFormProps)
     const [spareparts, setSpareparts] = useState<Sparepart[]>([]);
     const [sparepartSearch, setSparepartSearch] = useState("");
     const [isSearching, setIsSearching] = useState(false);
-    const [selectedSparepart, setSelectedSparepart] = useState<Sparepart | null>(null);
     const [showDropdown, setShowDropdown] = useState(false);
     const [scannerOpen, setScannerOpen] = useState(false);
 
-    const form = useForm<StockOutInput>({
-        resolver: zodResolver(stockOutSchema),
-        defaultValues: {
-            sparepartId: "",
-            equipmentId: "",
-            employeeId: "",
-            quantity: 1,
-            purpose: "",
-            scannedBarcode: "",
-        },
-    });
-
-    const quantity = form.watch("quantity");
+    // Cart state
+    const [cart, setCart] = useState<CartItem[]>([]);
+    const [equipmentId, setEquipmentId] = useState("");
+    const [employeeId, setEmployeeId] = useState("");
+    const [purpose, setPurpose] = useState("");
 
     useEffect(() => {
         fetchEquipments();
@@ -136,8 +131,8 @@ export function BarangKeluarForm({ onSubmit, isLoading }: BarangKeluarFormProps)
             if (response.ok && result.data.length > 0) {
                 const sp = result.data[0];
                 if (sp.code === code) {
-                    handleSelectSparepart(sp);
-                    toast.success(`Sparepart ditemukan: ${sp.name}`);
+                    addToCart(sp, code);
+                    toast.success(`Ditambahkan: ${sp.name}`);
                 } else {
                     toast.error("Sparepart dengan kode tersebut tidak ditemukan");
                 }
@@ -160,227 +155,323 @@ export function BarangKeluarForm({ onSubmit, isLoading }: BarangKeluarFormProps)
         return () => clearTimeout(timer);
     }, [sparepartSearch, searchSpareparts]);
 
-    const handleSelectSparepart = (sparepart: Sparepart) => {
-        setSelectedSparepart(sparepart);
-        form.setValue("sparepartId", sparepart.id);
-        setSparepartSearch(sparepart.name);
+    const addToCart = (sparepart: Sparepart, scannedBarcode?: string) => {
+        setCart(prev => {
+            // Check if item already exists
+            const existingIndex = prev.findIndex(item => item.sparepart.id === sparepart.id);
+
+            if (existingIndex >= 0) {
+                // Increment quantity
+                const updated = [...prev];
+                const newQty = updated[existingIndex].quantity + 1;
+
+                // Check stock
+                if (newQty > sparepart.currentStock) {
+                    toast.error(`Stok tidak mencukupi! Tersedia: ${sparepart.currentStock} ${sparepart.unit}`);
+                    return prev;
+                }
+
+                updated[existingIndex].quantity = newQty;
+                return updated;
+            } else {
+                // Add new item
+                if (sparepart.currentStock < 1) {
+                    toast.error(`Stok tidak tersedia untuk ${sparepart.name}`);
+                    return prev;
+                }
+
+                return [...prev, { sparepart, quantity: 1, scannedBarcode }];
+            }
+        });
+
+        setSparepartSearch("");
         setShowDropdown(false);
     };
 
+    const updateQuantity = (index: number, newQuantity: number) => {
+        if (newQuantity < 1) return;
+
+        setCart(prev => {
+            const updated = [...prev];
+            const item = updated[index];
+
+            if (newQuantity > item.sparepart.currentStock) {
+                toast.error(`Stok tidak mencukupi! Tersedia: ${item.sparepart.currentStock} ${item.sparepart.unit}`);
+                return prev;
+            }
+
+            updated[index].quantity = newQuantity;
+            return updated;
+        });
+    };
+
+    const removeFromCart = (index: number) => {
+        setCart(prev => prev.filter((_, i) => i !== index));
+    };
+
     const handleBarcodeScan = (code: string) => {
-        form.setValue("scannedBarcode", code);
-        setSparepartSearch(code);
         fetchSparepartByCode(code);
     };
 
-    const handleSubmit = async (data: StockOutInput) => {
-        await onSubmit(data);
+    const handleSubmit = async () => {
+        if (cart.length === 0) {
+            toast.error("Keranjang kosong! Scan atau pilih sparepart terlebih dahulu.");
+            return;
+        }
+
+        if (!equipmentId) {
+            toast.error("Pilih unit alat berat terlebih dahulu.");
+            return;
+        }
+
+        if (!employeeId) {
+            toast.error("Pilih pemohon/karyawan terlebih dahulu.");
+            return;
+        }
+
+        const items = cart.map(item => ({
+            sparepartId: item.sparepart.id,
+            quantity: item.quantity,
+            scannedBarcode: item.scannedBarcode,
+        }));
+
+        await onSubmit(items, equipmentId, employeeId, purpose);
+
+        // Clear cart after successful submit
+        setCart([]);
+        setPurpose("");
     };
 
-    const isStockInsufficient = selectedSparepart && quantity > selectedSparepart.currentStock;
+    const getTotalItems = () => cart.reduce((sum, item) => sum + item.quantity, 0);
 
     return (
         <>
-            <Form {...form}>
-                <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Informasi Barang Keluar</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            {/* Scan Barcode Button */}
-                            <div className="flex gap-2">
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={() => setScannerOpen(true)}
-                                    className="flex-1"
-                                >
-                                    <Camera className="mr-2 h-4 w-4" />
-                                    Scan Barcode
-                                </Button>
-                            </div>
+            <div className="space-y-6">
+                {/* Scanner & Search Section */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <ShoppingCart className="h-5 w-5" />
+                            Scan / Tambah Barang
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        {/* Scan Barcode Button */}
+                        <Button
+                            type="button"
+                            variant="default"
+                            size="lg"
+                            onClick={() => setScannerOpen(true)}
+                            className="w-full bg-blue-600 hover:bg-blue-700"
+                        >
+                            <Camera className="mr-2 h-5 w-5" />
+                            Scan Barcode
+                        </Button>
 
-                            {/* Sparepart Search */}
-                            <div className="space-y-2">
-                                <FormLabel>Sparepart *</FormLabel>
-                                <div className="relative">
-                                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                                    <Input
-                                        placeholder="Cari kode atau nama sparepart..."
-                                        value={sparepartSearch}
-                                        onChange={(e) => {
-                                            setSparepartSearch(e.target.value);
-                                            if (!e.target.value) {
-                                                setSelectedSparepart(null);
-                                                form.setValue("sparepartId", "");
-                                            }
-                                        }}
-                                        onFocus={() => sparepartSearch && setShowDropdown(true)}
-                                        className="pl-9"
-                                    />
-                                    {isSearching && (
-                                        <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-slate-400" />
-                                    )}
+                        {/* Manual Search */}
+                        <div className="space-y-2">
+                            <Label>Atau cari manual</Label>
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                                <Input
+                                    placeholder="Ketik kode atau nama sparepart..."
+                                    value={sparepartSearch}
+                                    onChange={(e) => setSparepartSearch(e.target.value)}
+                                    onFocus={() => sparepartSearch && setShowDropdown(true)}
+                                    className="pl-9"
+                                />
+                                {isSearching && (
+                                    <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-slate-400" />
+                                )}
 
-                                    {/* Dropdown Results */}
-                                    {showDropdown && spareparts.length > 0 && (
-                                        <div className="absolute z-10 mt-1 w-full rounded-md border bg-white shadow-lg max-h-60 overflow-auto">
-                                            {spareparts.map((sp) => (
-                                                <button
-                                                    key={sp.id}
-                                                    type="button"
-                                                    className="w-full px-4 py-2 text-left hover:bg-slate-100 flex items-center justify-between"
-                                                    onClick={() => handleSelectSparepart(sp)}
-                                                >
-                                                    <div>
-                                                        <p className="font-medium">{sp.name}</p>
-                                                        <p className="text-sm text-slate-500">
-                                                            {sp.code} • {sp.category.name}
-                                                        </p>
-                                                    </div>
+                                {/* Dropdown Results */}
+                                {showDropdown && spareparts.length > 0 && (
+                                    <div className="absolute z-10 mt-1 w-full rounded-md border bg-white shadow-lg max-h-60 overflow-auto">
+                                        {spareparts.map((sp) => (
+                                            <button
+                                                key={sp.id}
+                                                type="button"
+                                                className="w-full px-4 py-2 text-left hover:bg-slate-100 flex items-center justify-between"
+                                                onClick={() => addToCart(sp)}
+                                            >
+                                                <div>
+                                                    <p className="font-medium">{sp.name}</p>
+                                                    <p className="text-sm text-slate-500">
+                                                        {sp.code} • {sp.category.name}
+                                                    </p>
+                                                </div>
+                                                <div className="flex items-center gap-2">
                                                     <span className={`text-sm ${sp.currentStock <= 0 ? 'text-red-600' : 'text-slate-600'}`}>
                                                         Stok: {sp.currentStock} {sp.unit}
                                                     </span>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                                {form.formState.errors.sparepartId && (
-                                    <p className="text-sm text-red-500">{form.formState.errors.sparepartId.message}</p>
-                                )}
-                            </div>
-
-                            {/* Selected Sparepart Preview */}
-                            {selectedSparepart && (
-                                <div className={`p-4 rounded-lg border ${isStockInsufficient ? 'bg-red-50 border-red-200' : 'bg-blue-50 border-blue-200'}`}>
-                                    <div className="flex items-center gap-3">
-                                        <div className={`p-2 rounded-lg ${isStockInsufficient ? 'bg-red-100' : 'bg-blue-100'}`}>
-                                            <Package className={`h-6 w-6 ${isStockInsufficient ? 'text-red-600' : 'text-blue-600'}`} />
-                                        </div>
-                                        <div className="flex-1">
-                                            <p className={`font-semibold ${isStockInsufficient ? 'text-red-900' : 'text-blue-900'}`}>
-                                                {selectedSparepart.name}
-                                            </p>
-                                            <p className={`text-sm ${isStockInsufficient ? 'text-red-700' : 'text-blue-700'}`}>
-                                                Kode: {selectedSparepart.code} • Kategori: {selectedSparepart.category.name}
-                                            </p>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className={`text-sm ${isStockInsufficient ? 'text-red-600' : 'text-blue-600'}`}>Stok Tersedia</p>
-                                            <p className={`font-bold ${isStockInsufficient ? 'text-red-900' : 'text-blue-900'}`}>
-                                                {selectedSparepart.currentStock} {selectedSparepart.unit}
-                                            </p>
-                                        </div>
+                                                    <Plus className="h-4 w-4 text-blue-600" />
+                                                </div>
+                                            </button>
+                                        ))}
                                     </div>
-                                    {isStockInsufficient && (
-                                        <div className="mt-3 flex items-center gap-2 text-red-700">
-                                            <AlertTriangle className="h-4 w-4" />
-                                            <span className="text-sm font-medium">Stok tidak mencukupi!</span>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <FormField
-                                    control={form.control}
-                                    name="quantity"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Jumlah *</FormLabel>
-                                            <FormControl>
-                                                <Input
-                                                    type="number"
-                                                    min="1"
-                                                    {...field}
-                                                    onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                                                />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <FormField
-                                    control={form.control}
-                                    name="equipmentId"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Unit Alat Berat *</FormLabel>
-                                            <Select onValueChange={field.onChange} value={field.value}>
-                                                <FormControl>
-                                                    <SelectTrigger>
-                                                        <SelectValue placeholder="Pilih unit" />
-                                                    </SelectTrigger>
-                                                </FormControl>
-                                                <SelectContent>
-                                                    {equipments.map((eq) => (
-                                                        <SelectItem key={eq.id} value={eq.id}>
-                                                            {eq.code} - {eq.name} ({eq.type})
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
+                                )}
                             </div>
+                        </div>
+                    </CardContent>
+                </Card>
 
-                            <FormField
-                                control={form.control}
-                                name="employeeId"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Pemohon/Karyawan *</FormLabel>
-                                        <Select onValueChange={field.onChange} value={field.value}>
-                                            <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Pilih karyawan" />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                {employees.map((emp) => (
-                                                    <SelectItem key={emp.id} value={emp.id}>
-                                                        {emp.nik} - {emp.name} ({emp.position})
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
+                {/* Cart Table */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center justify-between">
+                            <span className="flex items-center gap-2">
+                                <Package className="h-5 w-5" />
+                                Keranjang ({cart.length} jenis, {getTotalItems()} item)
+                            </span>
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        {cart.length === 0 ? (
+                            <div className="text-center py-8 text-slate-500">
+                                <ShoppingCart className="h-12 w-12 mx-auto mb-3 text-slate-300" />
+                                <p>Keranjang kosong</p>
+                                <p className="text-sm">Scan barcode atau cari sparepart untuk menambahkan</p>
+                            </div>
+                        ) : (
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Sparepart</TableHead>
+                                        <TableHead className="text-center w-32">Jumlah</TableHead>
+                                        <TableHead className="text-center w-24">Stok</TableHead>
+                                        <TableHead className="w-16"></TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {cart.map((item, index) => (
+                                        <TableRow key={item.sparepart.id}>
+                                            <TableCell>
+                                                <div>
+                                                    <p className="font-medium">{item.sparepart.name}</p>
+                                                    <p className="text-sm text-slate-500">{item.sparepart.code}</p>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex items-center justify-center gap-1">
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="h-8 w-8 p-0"
+                                                        onClick={() => updateQuantity(index, item.quantity - 1)}
+                                                        disabled={item.quantity <= 1}
+                                                    >
+                                                        -
+                                                    </Button>
+                                                    <Input
+                                                        type="number"
+                                                        value={item.quantity}
+                                                        onChange={(e) => updateQuantity(index, parseInt(e.target.value) || 1)}
+                                                        className="w-16 h-8 text-center"
+                                                        min="1"
+                                                        max={item.sparepart.currentStock}
+                                                    />
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="h-8 w-8 p-0"
+                                                        onClick={() => updateQuantity(index, item.quantity + 1)}
+                                                        disabled={item.quantity >= item.sparepart.currentStock}
+                                                    >
+                                                        +
+                                                    </Button>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-center">
+                                                <span className={item.quantity > item.sparepart.currentStock ? 'text-red-600 font-medium' : 'text-slate-600'}>
+                                                    {item.sparepart.currentStock} {item.sparepart.unit}
+                                                </span>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => removeFromCart(index)}
+                                                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        )}
+                    </CardContent>
+                </Card>
+
+                {/* Equipment, Employee & Purpose */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Informasi Pengambilan</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label>Unit Alat Berat *</Label>
+                                <Select value={equipmentId} onValueChange={setEquipmentId}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Pilih unit" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {equipments.map((eq) => (
+                                            <SelectItem key={eq.id} value={eq.id}>
+                                                {eq.code} - {eq.name} ({eq.type})
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Pemohon/Karyawan *</Label>
+                                <Select value={employeeId} onValueChange={setEmployeeId}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Pilih karyawan" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {employees.map((emp) => (
+                                            <SelectItem key={emp.id} value={emp.id}>
+                                                {emp.nik} - {emp.name} ({emp.position})
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>Keperluan</Label>
+                            <Textarea
+                                placeholder="Keperluan pengambilan sparepart..."
+                                value={purpose}
+                                onChange={(e) => setPurpose(e.target.value)}
+                                className="resize-none"
                             />
+                        </div>
+                    </CardContent>
+                </Card>
 
-                            <FormField
-                                control={form.control}
-                                name="purpose"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Keperluan</FormLabel>
-                                        <FormControl>
-                                            <Textarea
-                                                placeholder="Keperluan pengambilan sparepart..."
-                                                className="resize-none"
-                                                {...field}
-                                            />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                        </CardContent>
-                    </Card>
-
-                    <div className="flex justify-end gap-3">
-                        <Button type="submit" disabled={isLoading || !!isStockInsufficient}>
-                            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Submit Request
-                        </Button>
-                    </div>
-                </form>
-            </Form>
+                {/* Submit Button */}
+                <div className="flex justify-end gap-3">
+                    <Button
+                        type="button"
+                        onClick={handleSubmit}
+                        disabled={isLoading || cart.length === 0 || !equipmentId || !employeeId}
+                        size="lg"
+                        className="min-w-40"
+                    >
+                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Submit Request ({getTotalItems()} item)
+                    </Button>
+                </div>
+            </div>
 
             <BarcodeScanner
                 open={scannerOpen}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Html5Qrcode } from "html5-qrcode";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -12,23 +12,37 @@ interface BarcodeScannerProps {
     onScan: (code: string) => void;
 }
 
+// Play beep sound on successful scan
+const playBeep = () => {
+    try {
+        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        oscillator.frequency.value = 800; // Hz - pitch of the beep
+        oscillator.type = "sine";
+
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime); // Volume
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
+
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.15); // Beep duration: 150ms
+    } catch (err) {
+        console.error("Error playing beep:", err);
+    }
+};
+
 export function BarcodeScanner({ open, onClose, onScan }: BarcodeScannerProps) {
     const scannerRef = useRef<Html5Qrcode | null>(null);
     const [isScanning, setIsScanning] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [hasPermission, setHasPermission] = useState(false);
 
-    useEffect(() => {
-        if (open && !isScanning && !isLoading) {
-            startScanner();
-        }
-
-        return () => {
-            stopScanner();
-        };
-    }, [open]);
-
-    const requestCameraPermission = async (): Promise<boolean> => {
+    const requestCameraPermission = useCallback(async (): Promise<boolean> => {
         try {
             // Check if mediaDevices is available
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -64,18 +78,17 @@ export function BarcodeScanner({ open, onClose, onScan }: BarcodeScannerProps) {
 
             return false;
         }
-    };
+    }, []);
 
-    const startScanner = async () => {
+    const initializeScanner = useCallback(async () => {
         try {
-            setError(null);
-            setIsLoading(true);
+            // Wait for DOM element to be ready
+            await new Promise(resolve => setTimeout(resolve, 300));
 
-            // Request camera permission first
-            const hasPermission = await requestCameraPermission();
-            if (!hasPermission) {
-                setIsLoading(false);
-                return;
+            // Check if element exists
+            const element = document.getElementById("barcode-reader");
+            if (!element) {
+                throw new Error("Scanner element not found. Silakan coba lagi.");
             }
 
             const scanner = new Html5Qrcode("barcode-reader");
@@ -88,7 +101,8 @@ export function BarcodeScanner({ open, onClose, onScan }: BarcodeScannerProps) {
                     qrbox: { width: 250, height: 150 },
                 },
                 (decodedText) => {
-                    // On successful scan
+                    // On successful scan - play beep and process
+                    playBeep();
                     onScan(decodedText);
                     stopScanner();
                     onClose();
@@ -103,6 +117,7 @@ export function BarcodeScanner({ open, onClose, onScan }: BarcodeScannerProps) {
         } catch (err: any) {
             console.error("Error starting scanner:", err);
             setIsLoading(false);
+            setHasPermission(false);
 
             // Handle html5-qrcode specific errors
             if (err?.message?.includes("permission")) {
@@ -113,18 +128,56 @@ export function BarcodeScanner({ open, onClose, onScan }: BarcodeScannerProps) {
                 setError(err?.message || "Gagal memulai scanner. Silakan coba lagi.");
             }
         }
-    };
+    }, [onScan, onClose]);
+
+    const startScanner = useCallback(async () => {
+        setError(null);
+        setIsLoading(true);
+        setHasPermission(false);
+
+        // Request camera permission first
+        const permitted = await requestCameraPermission();
+        if (!permitted) {
+            setIsLoading(false);
+            return;
+        }
+
+        setHasPermission(true);
+    }, [requestCameraPermission]);
+
+    // Initialize scanner after permission is granted
+    useEffect(() => {
+        if (hasPermission && isLoading && !isScanning) {
+            initializeScanner();
+        }
+    }, [hasPermission, isLoading, isScanning, initializeScanner]);
+
+    // Start scanner when dialog opens
+    useEffect(() => {
+        if (open && !isScanning && !isLoading) {
+            startScanner();
+        }
+
+        return () => {
+            stopScanner();
+        };
+    }, [open]);
 
     const stopScanner = async () => {
-        if (scannerRef.current && isScanning) {
+        if (scannerRef.current) {
             try {
-                await scannerRef.current.stop();
+                const state = scannerRef.current.getState();
+                if (state === 2) { // SCANNING state
+                    await scannerRef.current.stop();
+                }
                 scannerRef.current.clear();
             } catch (err) {
                 console.error("Error stopping scanner:", err);
             }
+            scannerRef.current = null;
         }
         setIsScanning(false);
+        setHasPermission(false);
     };
 
     const handleClose = () => {
@@ -142,21 +195,19 @@ export function BarcodeScanner({ open, onClose, onScan }: BarcodeScannerProps) {
                     </DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4">
-                    {/* Loading State */}
-                    {isLoading && (
-                        <div className="flex flex-col items-center justify-center py-12 space-y-3">
-                            <Loader2 className="h-10 w-10 animate-spin text-blue-600" />
-                            <p className="text-sm text-slate-600">Meminta akses kamera...</p>
-                        </div>
-                    )}
+                    {/* Camera View - Always in DOM for scanner to attach */}
+                    <div
+                        id="barcode-reader"
+                        className="w-full rounded-lg overflow-hidden bg-slate-900"
+                        style={{ minHeight: "300px" }}
+                    />
 
-                    {/* Camera View */}
-                    {!isLoading && (
-                        <div
-                            id="barcode-reader"
-                            className="w-full rounded-lg overflow-hidden bg-slate-900"
-                            style={{ minHeight: "300px" }}
-                        />
+                    {/* Loading Overlay */}
+                    {isLoading && !hasPermission && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/80 rounded-lg">
+                            <Loader2 className="h-10 w-10 animate-spin text-blue-500" />
+                            <p className="text-sm text-white mt-3">Meminta akses kamera...</p>
+                        </div>
                     )}
 
                     {error && (
@@ -172,7 +223,7 @@ export function BarcodeScanner({ open, onClose, onScan }: BarcodeScannerProps) {
                         </div>
                     )}
 
-                    {!isLoading && !error && (
+                    {!isLoading && !error && isScanning && (
                         <p className="text-sm text-slate-500 text-center">
                             Arahkan kamera ke barcode sparepart
                         </p>
