@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { Menu, Bell, ChevronRight, Home, LogOut, User, Settings } from "lucide-react";
@@ -142,13 +143,17 @@ export function Header({ onMenuClick }: HeaderProps) {
                     <DropdownMenuContent align="end" className="w-56">
                         <DropdownMenuLabel>Akun Saya</DropdownMenuLabel>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem>
-                            <User className="mr-2 h-4 w-4" />
-                            Profil
+                        <DropdownMenuItem asChild>
+                            <Link href="/profil" className="flex items-center">
+                                <User className="mr-2 h-4 w-4" />
+                                Profil
+                            </Link>
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
-                            <Settings className="mr-2 h-4 w-4" />
-                            Pengaturan
+                        <DropdownMenuItem asChild>
+                            <Link href="/settings/activity-log" className="flex items-center">
+                                <Settings className="mr-2 h-4 w-4" />
+                                Pengaturan
+                            </Link>
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={handleLogout} className="text-red-600">
