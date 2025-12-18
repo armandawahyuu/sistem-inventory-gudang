@@ -16,8 +16,8 @@ export default function DashboardLayout({
     return (
         <div className="min-h-screen bg-slate-50">
             {/* Desktop Sidebar */}
-            <aside className="fixed inset-y-0 left-0 z-50 hidden w-64 lg:block">
-                <Sidebar />
+            <aside className="fixed inset-y-0 left-0 z-50 hidden w-64 lg:flex lg:flex-col">
+                <Sidebar className="h-full" />
             </aside>
 
             {/* Mobile Navigation */}

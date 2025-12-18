@@ -104,6 +104,17 @@ const navItems: NavItem[] = [
             { title: "Kehadiran", href: "/laporan/kehadiran", icon: <UserCircle className="h-4 w-4" /> },
         ],
     },
+    {
+        title: "Settings",
+        icon: <Settings className="h-5 w-5" />,
+        children: [
+            { title: "Import Data", href: "/settings/import", icon: <FileInput className="h-4 w-4" /> },
+            { title: "History Import", href: "/settings/import/history", icon: <Clock className="h-4 w-4" /> },
+            { title: "Cleanup Data", href: "/settings/cleanup", icon: <ListChecks className="h-4 w-4" /> },
+            { title: "Migrasi", href: "/settings/migrasi", icon: <ArrowUpFromLine className="h-4 w-4" /> },
+            { title: "Security Logs", href: "/settings/security-logs", icon: <Shield className="h-4 w-4" /> },
+        ],
+    },
 ];
 
 interface SidebarProps {
@@ -136,7 +147,7 @@ export function Sidebar({ className, onNavItemClick }: SidebarProps) {
     return (
         <div className={cn("flex h-full flex-col bg-slate-900 text-white", className)}>
             {/* Logo */}
-            <div className="flex h-16 items-center gap-2 border-b border-slate-800 px-6">
+            <div className="flex h-16 shrink-0 items-center gap-2 border-b border-slate-800 px-6">
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-blue-700">
                     <Package className="h-5 w-5 text-white" />
                 </div>
@@ -146,8 +157,8 @@ export function Sidebar({ className, onNavItemClick }: SidebarProps) {
                 </div>
             </div>
 
-            {/* Navigation */}
-            <ScrollArea className="flex-1 px-3 py-4">
+            {/* Navigation - scrollable */}
+            <div className="flex-1 min-h-0 overflow-y-auto px-3 py-4">
                 <nav className="space-y-1">
                     {navItems.map((item) => (
                         <div key={item.title}>
@@ -212,10 +223,10 @@ export function Sidebar({ className, onNavItemClick }: SidebarProps) {
                         </div>
                     ))}
                 </nav>
-            </ScrollArea>
+            </div>
 
             {/* User Info & Logout */}
-            <div className="border-t border-slate-800 p-4">
+            <div className="shrink-0 border-t border-slate-800 p-4">
                 <div className="flex items-center gap-3">
                     <Avatar className="h-9 w-9">
                         <AvatarFallback className="bg-slate-700 text-white">
@@ -239,6 +250,11 @@ export function Sidebar({ className, onNavItemClick }: SidebarProps) {
                         <LogOut className="h-4 w-4" />
                     </Button>
                 </div>
+
+                {/* Copyright */}
+                <p className="mt-3 text-[10px] text-slate-500 text-center">
+                    © {new Date().getFullYear()} PT WAHYU KREASI DIGITAL
+                </p>
             </div>
         </div>
     );

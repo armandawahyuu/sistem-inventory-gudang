@@ -16,6 +16,7 @@ import {
     CardTitle,
 } from "@/components/ui/card";
 import { loginSchema, type LoginInput } from "@/lib/validations";
+import { Package, Lock, User, Loader2, AlertCircle } from "lucide-react";
 
 export default function LoginPage() {
     const router = useRouter();
@@ -55,120 +56,126 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
-            {/* Background pattern */}
-            <div className="absolute inset-0 bg-[linear-gradient(to_right,#4f4f4f2e_1px,transparent_1px),linear-gradient(to_bottom,#4f4f4f2e_1px,transparent_1px)] bg-[size:14px_24px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]" />
+        <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 p-4 relative overflow-hidden">
+            {/* Animated background elements */}
+            <div className="absolute inset-0 overflow-hidden">
+                <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl animate-pulse" />
+                <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl animate-pulse delay-1000" />
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-blue-600/5 rounded-full blur-3xl" />
+            </div>
 
-            <Card className="w-full max-w-md relative z-10 shadow-2xl border-slate-700/50 bg-white/95 backdrop-blur">
-                <CardHeader className="space-y-1 text-center pb-8">
-                    {/* Logo */}
-                    <div className="mx-auto w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl flex items-center justify-center mb-4 shadow-lg">
-                        <svg
-                            className="w-8 h-8 text-white"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                        >
-                            <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
-                            />
-                        </svg>
+            {/* Grid pattern */}
+            <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff05_1px,transparent_1px),linear-gradient(to_bottom,#ffffff05_1px,transparent_1px)] bg-[size:32px_32px]" />
+
+            {/* Main card */}
+            <Card className="w-full max-w-[420px] relative z-10 shadow-2xl border-white/10 bg-white/[0.03] backdrop-blur-xl">
+                <CardHeader className="space-y-1 text-center pb-6 pt-8">
+                    {/* Logo with glow effect */}
+                    <div className="mx-auto relative">
+                        <div className="absolute inset-0 bg-blue-500 rounded-2xl blur-xl opacity-40 animate-pulse" />
+                        <div className="relative w-16 h-16 bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-xl shadow-blue-500/25">
+                            <Package className="w-8 h-8 text-white" />
+                        </div>
                     </div>
-                    <CardTitle className="text-2xl font-bold text-slate-900">
-                        Masuk
-                    </CardTitle>
-                    <CardDescription className="text-slate-600">
-                        Sistem Inventory Gudang Sparepart Alat Berat
-                    </CardDescription>
+
+                    <div className="pt-4">
+                        <CardTitle className="text-2xl font-bold text-white tracking-tight">
+                            Selamat Datang
+                        </CardTitle>
+                        <CardDescription className="text-slate-400 mt-2">
+                            Sistem Inventory Gudang Sparepart Alat Berat
+                        </CardDescription>
+                    </div>
                 </CardHeader>
-                <CardContent>
-                    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+
+                <CardContent className="pb-8">
+                    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
                         {/* Global Error */}
                         {error && (
-                            <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
-                                <svg
-                                    className="w-4 h-4 flex-shrink-0"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                >
-                                    <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                    />
-                                </svg>
-                                {error}
+                            <div className="p-3.5 text-sm text-red-300 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 backdrop-blur-sm">
+                                <AlertCircle className="w-5 h-5 flex-shrink-0 text-red-400" />
+                                <span>{error}</span>
                             </div>
                         )}
 
                         {/* Username Field */}
                         <div className="space-y-2">
-                            <Label htmlFor="username">Username</Label>
-                            <Input
-                                id="username"
-                                type="text"
-                                placeholder="Masukkan username"
-                                className={`h-11 ${errors.username ? "border-red-500 focus-visible:ring-red-500" : ""}`}
-                                {...register("username")}
-                            />
+                            <Label htmlFor="username" className="text-slate-300 text-sm font-medium">
+                                Username
+                            </Label>
+                            <div className="relative">
+                                <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+                                <Input
+                                    id="username"
+                                    type="text"
+                                    placeholder="Masukkan username"
+                                    className={`h-12 pl-11 bg-white/5 border-white/10 text-white placeholder:text-slate-500 focus:border-blue-500/50 focus:ring-blue-500/20 rounded-xl transition-all ${errors.username ? "border-red-500/50 focus:ring-red-500/20" : ""
+                                        }`}
+                                    {...register("username")}
+                                />
+                            </div>
                             {errors.username && (
-                                <p className="text-sm text-red-500">{errors.username.message}</p>
+                                <p className="text-sm text-red-400 flex items-center gap-1.5">
+                                    <span className="w-1 h-1 rounded-full bg-red-400" />
+                                    {errors.username.message}
+                                </p>
                             )}
                         </div>
 
                         {/* Password Field */}
                         <div className="space-y-2">
-                            <Label htmlFor="password">Password</Label>
-                            <Input
-                                id="password"
-                                type="password"
-                                placeholder="Masukkan password"
-                                className={`h-11 ${errors.password ? "border-red-500 focus-visible:ring-red-500" : ""}`}
-                                {...register("password")}
-                            />
+                            <Label htmlFor="password" className="text-slate-300 text-sm font-medium">
+                                Password
+                            </Label>
+                            <div className="relative">
+                                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+                                <Input
+                                    id="password"
+                                    type="password"
+                                    placeholder="Masukkan password"
+                                    className={`h-12 pl-11 bg-white/5 border-white/10 text-white placeholder:text-slate-500 focus:border-blue-500/50 focus:ring-blue-500/20 rounded-xl transition-all ${errors.password ? "border-red-500/50 focus:ring-red-500/20" : ""
+                                        }`}
+                                    {...register("password")}
+                                />
+                            </div>
                             {errors.password && (
-                                <p className="text-sm text-red-500">{errors.password.message}</p>
+                                <p className="text-sm text-red-400 flex items-center gap-1.5">
+                                    <span className="w-1 h-1 rounded-full bg-red-400" />
+                                    {errors.password.message}
+                                </p>
                             )}
                         </div>
 
                         {/* Submit Button */}
                         <Button
                             type="submit"
-                            className="w-full h-11 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 shadow-lg"
+                            className="w-full h-12 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-lg shadow-blue-500/25 text-white font-medium rounded-xl transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] mt-2"
                             disabled={isLoading}
                         >
                             {isLoading ? (
                                 <span className="flex items-center gap-2">
-                                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                                        <circle
-                                            className="opacity-25"
-                                            cx="12"
-                                            cy="12"
-                                            r="10"
-                                            stroke="currentColor"
-                                            strokeWidth="4"
-                                            fill="none"
-                                        />
-                                        <path
-                                            className="opacity-75"
-                                            fill="currentColor"
-                                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                        />
-                                    </svg>
+                                    <Loader2 className="w-5 h-5 animate-spin" />
                                     Memproses...
                                 </span>
                             ) : (
-                                "Masuk"
+                                <span className="flex items-center gap-2">
+                                    Masuk
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                                    </svg>
+                                </span>
                             )}
                         </Button>
                     </form>
                 </CardContent>
             </Card>
+
+            {/* Copyright */}
+            <p className="mt-8 text-center text-sm text-slate-500 relative z-10">
+                © {new Date().getFullYear()} <span className="text-slate-400">PT WAHYU KREASI DIGITAL</span>
+                <br />
+                <span className="text-xs text-slate-600">All rights reserved.</span>
+            </p>
         </div>
     );
 }
