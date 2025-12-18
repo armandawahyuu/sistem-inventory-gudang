@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useId } from "react";
+import { useState, useId, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
 import {
     LayoutDashboard,
@@ -127,7 +127,12 @@ export function Sidebar({ className, onNavItemClick }: SidebarProps) {
     const pathname = usePathname();
     const { data: session } = useSession();
     const [openMenus, setOpenMenus] = useState<string[]>(["Master Data", "Transaksi"]);
+    const [currentYear, setCurrentYear] = useState<number>(2025);
     const baseId = useId();
+
+    useEffect(() => {
+        setCurrentYear(new Date().getFullYear());
+    }, []);
 
     const toggleMenu = (title: string) => {
         setOpenMenus((prev) =>
@@ -253,9 +258,8 @@ export function Sidebar({ className, onNavItemClick }: SidebarProps) {
                     </Button>
                 </div>
 
-                {/* Copyright */}
                 <p className="mt-3 text-[10px] text-slate-500 text-center">
-                    © {new Date().getFullYear()} PT WAHYU KREASI DIGITAL
+                    © {currentYear} PT WAHYU KREASI DIGITAL
                 </p>
             </div>
         </div>
