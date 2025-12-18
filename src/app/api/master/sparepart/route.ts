@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { sparepartSchema } from "@/lib/validations/sparepart";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { createAuditLog, generateDescription } from "@/lib/audit-log";
 
 // GET - List all spareparts with pagination, search, and filters
 export async function GET(request: NextRequest) {
@@ -107,6 +110,20 @@ export async function POST(request: NextRequest) {
             data,
             include: { category: true },
         });
+
+        // Audit log
+        const session = await getServerSession(authOptions);
+        if (session?.user) {
+            await createAuditLog({
+                userId: session.user.id,
+                userName: session.user.name || "",
+                action: "CREATE",
+                tableName: "Sparepart",
+                recordId: sparepart.id,
+                dataAfter: { code: sparepart.code, name: sparepart.name },
+                description: generateDescription("CREATE", "Sparepart", sparepart.code),
+            });
+        }
 
         return NextResponse.json(
             { data: sparepart, message: "Sparepart berhasil ditambahkan" },

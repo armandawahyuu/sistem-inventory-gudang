@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { pettyCashIncomeSchema } from "@/lib/validations/petty-cash";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { createAuditLog, generateDescription } from "@/lib/audit-log";
 
 // GET - List income transactions
 export async function GET(request: NextRequest) {
@@ -92,6 +95,20 @@ export async function POST(request: NextRequest) {
                 description,
             },
         });
+
+        // Audit log
+        const session = await getServerSession(authOptions);
+        if (session?.user) {
+            await createAuditLog({
+                userId: session.user.id,
+                userName: session.user.name || "",
+                action: "CREATE",
+                tableName: "PettyCash",
+                recordId: transaction.id,
+                dataAfter: { amount, description, type: "in" },
+                description: generateDescription("CREATE", "PettyCash", `Pemasukan Rp ${amount.toLocaleString("id-ID")}`),
+            });
+        }
 
         return NextResponse.json({
             data: transaction,
