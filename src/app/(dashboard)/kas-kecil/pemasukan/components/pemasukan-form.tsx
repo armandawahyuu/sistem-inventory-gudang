@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Textarea } from "@/components/ui/textarea";
 import {
     Form,
@@ -78,12 +79,9 @@ export function PemasukanForm({ open, onClose, onSubmit, isLoading }: PemasukanF
                                 <FormItem>
                                     <FormLabel>Jumlah (Rp) *</FormLabel>
                                     <FormControl>
-                                        <Input
-                                            type="number"
-                                            min="0"
-                                            placeholder="0"
-                                            {...field}
-                                            onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                                        <CurrencyInput
+                                            value={field.value}
+                                            onChange={field.onChange}
                                         />
                                     </FormControl>
                                     <FormMessage />
