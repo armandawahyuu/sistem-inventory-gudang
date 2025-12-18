@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { stockOutSchema } from "@/lib/validations/stock-out";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { createAuditLog, generateDescription } from "@/lib/audit-log";
 
 // GET - List all stock outs with pagination, search, and filters
 export async function GET(request: NextRequest) {
@@ -151,6 +154,20 @@ export async function POST(request: NextRequest) {
                 employee: { select: { name: true } },
             },
         });
+
+        // Audit log
+        const session = await getServerSession(authOptions);
+        if (session?.user) {
+            await createAuditLog({
+                userId: session.user.id,
+                userName: session.user.name || "",
+                action: "CREATE",
+                tableName: "StockOut",
+                recordId: stockOut.id,
+                dataAfter: { sparepart: sparepart.name, quantity, equipment: equipment.code },
+                description: generateDescription("CREATE", "StockOut", `${sparepart.name} (-${quantity}) untuk ${equipment.code}`),
+            });
+        }
 
         return NextResponse.json(
             { data: stockOut, message: "Request barang keluar berhasil dibuat" },

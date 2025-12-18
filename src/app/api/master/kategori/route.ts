@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { kategoriSchema } from "@/lib/validations/kategori";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { createAuditLog, generateDescription } from "@/lib/audit-log";
 
 // GET - List all categories with pagination and search
 export async function GET(request: NextRequest) {
@@ -78,6 +81,20 @@ export async function POST(request: NextRequest) {
         const category = await prisma.category.create({
             data: validationResult.data,
         });
+
+        // Audit log
+        const session = await getServerSession(authOptions);
+        if (session?.user) {
+            await createAuditLog({
+                userId: session.user.id,
+                userName: session.user.name || "",
+                action: "CREATE",
+                tableName: "Category",
+                recordId: category.id,
+                dataAfter: { name: category.name },
+                description: generateDescription("CREATE", "Category", category.name),
+            });
+        }
 
         return NextResponse.json(
             { data: category, message: "Kategori berhasil ditambahkan" },

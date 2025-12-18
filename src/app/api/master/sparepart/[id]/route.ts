@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { sparepartSchema } from "@/lib/validations/sparepart";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { createAuditLog, generateDescription } from "@/lib/audit-log";
 
 interface Params {
     params: Promise<{ id: string }>;
@@ -88,6 +91,21 @@ export async function PUT(request: NextRequest, { params }: Params) {
             include: { category: true },
         });
 
+        // Audit log
+        const session = await getServerSession(authOptions);
+        if (session?.user) {
+            await createAuditLog({
+                userId: session.user.id,
+                userName: session.user.name || "",
+                action: "UPDATE",
+                tableName: "Sparepart",
+                recordId: id,
+                dataBefore: { code: existing.code, name: existing.name },
+                dataAfter: { code: sparepart.code, name: sparepart.name },
+                description: generateDescription("UPDATE", "Sparepart", sparepart.code),
+            });
+        }
+
         return NextResponse.json({
             data: sparepart,
             message: "Sparepart berhasil diperbarui",
@@ -131,6 +149,20 @@ export async function DELETE(request: NextRequest, { params }: Params) {
         await prisma.sparepart.delete({
             where: { id },
         });
+
+        // Audit log
+        const session = await getServerSession(authOptions);
+        if (session?.user) {
+            await createAuditLog({
+                userId: session.user.id,
+                userName: session.user.name || "",
+                action: "DELETE",
+                tableName: "Sparepart",
+                recordId: id,
+                dataBefore: { code: existing.code, name: existing.name },
+                description: generateDescription("DELETE", "Sparepart", existing.code),
+            });
+        }
 
         return NextResponse.json({
             message: "Sparepart berhasil dihapus",

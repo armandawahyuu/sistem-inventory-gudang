@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { karyawanSchema } from "@/lib/validations/karyawan";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { createAuditLog, generateDescription } from "@/lib/audit-log";
 
 // GET - List all karyawan with pagination, search, and filters
 export async function GET(request: NextRequest) {
@@ -99,6 +102,20 @@ export async function POST(request: NextRequest) {
         const employee = await prisma.employee.create({
             data,
         });
+
+        // Audit log
+        const session = await getServerSession(authOptions);
+        if (session?.user) {
+            await createAuditLog({
+                userId: session.user.id,
+                userName: session.user.name || "",
+                action: "CREATE",
+                tableName: "Employee",
+                recordId: employee.id,
+                dataAfter: { nik: employee.nik, name: employee.name },
+                description: generateDescription("CREATE", "Employee", employee.name),
+            });
+        }
 
         return NextResponse.json(
             { data: employee, message: "Karyawan berhasil ditambahkan" },

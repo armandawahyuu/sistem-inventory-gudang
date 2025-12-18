@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { supplierSchema } from "@/lib/validations/supplier";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { createAuditLog, generateDescription } from "@/lib/audit-log";
 
 // GET - List all suppliers with pagination and search
 export async function GET(request: NextRequest) {
@@ -75,6 +78,20 @@ export async function POST(request: NextRequest) {
         const supplier = await prisma.supplier.create({
             data,
         });
+
+        // Audit log
+        const session = await getServerSession(authOptions);
+        if (session?.user) {
+            await createAuditLog({
+                userId: session.user.id,
+                userName: session.user.name || "",
+                action: "CREATE",
+                tableName: "Supplier",
+                recordId: supplier.id,
+                dataAfter: { name: supplier.name },
+                description: generateDescription("CREATE", "Supplier", supplier.name),
+            });
+        }
 
         return NextResponse.json(
             { data: supplier, message: "Supplier berhasil ditambahkan" },

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { stockInSchema } from "@/lib/validations/stock-in";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { createAuditLog, generateDescription } from "@/lib/audit-log";
 
 // GET - List all stock ins with pagination, search, and filters
 export async function GET(request: NextRequest) {
@@ -144,6 +147,20 @@ export async function POST(request: NextRequest) {
 
             return stockIn;
         });
+
+        // Audit log
+        const session = await getServerSession(authOptions);
+        if (session?.user) {
+            await createAuditLog({
+                userId: session.user.id,
+                userName: session.user.name || "",
+                action: "CREATE",
+                tableName: "StockIn",
+                recordId: result.id,
+                dataAfter: { sparepart: sparepart.name, quantity },
+                description: generateDescription("CREATE", "StockIn", `${sparepart.name} (+${quantity})`),
+            });
+        }
 
         return NextResponse.json(
             { data: result, message: "Barang masuk berhasil ditambahkan" },

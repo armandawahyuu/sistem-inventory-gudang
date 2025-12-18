@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { alatBeratSchema } from "@/lib/validations/alat-berat";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { createAuditLog, generateDescription } from "@/lib/audit-log";
 
 // GET - List all heavy equipment with pagination, search, and filters
 export async function GET(request: NextRequest) {
@@ -103,6 +106,20 @@ export async function POST(request: NextRequest) {
         const equipment = await prisma.heavyEquipment.create({
             data,
         });
+
+        // Audit log
+        const session = await getServerSession(authOptions);
+        if (session?.user) {
+            await createAuditLog({
+                userId: session.user.id,
+                userName: session.user.name || "",
+                action: "CREATE",
+                tableName: "HeavyEquipment",
+                recordId: equipment.id,
+                dataAfter: { code: equipment.code, name: equipment.name },
+                description: generateDescription("CREATE", "HeavyEquipment", equipment.code),
+            });
+        }
 
         return NextResponse.json(
             { data: equipment, message: "Alat berat berhasil ditambahkan" },
